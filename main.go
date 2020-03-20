@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/gonutz/prototype/draw"
 	"math"
+
+	"github.com/gonutz/prototype/draw"
 )
 
 func main() {
@@ -56,27 +57,35 @@ func main() {
 		for step := 0; step < ballSpeed; step++ {
 			newX := ball.x + ball.vx
 			newY := ball.y + ball.vy
-			var horHit, verHit bool
-			// Let ball hit tiles.
+			c := circle{x: newX, y: newY, r: ballRadius}
+			hitAny := false
+			var deflectX, deflectY float64
 			for i, t := range tiles {
-				var h, v bool
-				if horIntersect(newX, newY, ballRadius, float64(t.x), float64(t.x+tileW), float64(t.y)) ||
-					horIntersect(newX, newY, ballRadius, float64(t.x), float64(t.x+tileW), float64(t.y+tileH)) {
-					h = true
+				r := rect{
+					x: float64(t.x),
+					y: float64(t.y),
+					w: tileW,
+					h: tileH,
 				}
-				if verIntersect(newX, newY, ballRadius, float64(t.x), float64(t.y), float64(t.y+tileH)) ||
-					verIntersect(newX, newY, ballRadius, float64(t.x+tileW), float64(t.y), float64(t.y+tileH)) {
-					v = true
-				}
-				if h || v {
+				hit, dx, dy := collideCircleWithRect(c, r)
+				if hit {
+					hitAny = true
+					deflectX += dx
+					deflectY += dy
+
 					tiles[i].hit++
 					if tiles[i].hit >= 3 {
 						tiles[i].x = -999
 					}
 				}
-				horHit = horHit || h
-				verHit = verHit || v
 			}
+			if hitAny {
+				normalize(&deflectX, &deflectY)
+				ball.vx, ball.vy = bounceDir(ball.vx, ball.vy, deflectX, deflectY)
+				ball.vx, ball.vy = makeNonHorizontal(ball.vx, ball.vy)
+			}
+
+			var horHit, verHit bool
 			// Let ball hit walls.
 			if horIntersect(newX, newY, ballRadius, 0, windowW, 0) {
 				horHit = true
@@ -109,6 +118,7 @@ func main() {
 			if verHit {
 				ball.vx *= -1
 			}
+
 			ball.x += ball.vx
 			ball.y += ball.vy
 		}
@@ -233,4 +243,94 @@ func abs(x float64) float64 {
 
 func square(x float64) float64 {
 	return x * x
+}
+
+type rect struct {
+	x, y, w, h float64
+}
+
+type circle struct {
+	x, y, r float64
+}
+
+func collideCircleWithRect(c circle, r rect) (hit bool, deflectX, deflectY float64) {
+	if r.y <= c.y && c.y <= r.y+r.h {
+		hit = r.x-c.r <= c.x && c.x <= r.x+r.w+c.r
+		if hit {
+			if c.x < r.x+r.w/2 {
+				deflectX = -1
+			} else {
+				deflectX = 1
+			}
+		}
+	} else if r.x <= c.x && c.x <= r.x+r.w {
+		hit = r.y-c.r <= c.y && c.y <= r.y+r.h+c.r
+		if hit {
+			if c.y < r.y+r.h/2 {
+				deflectY = -1
+			} else {
+				deflectY = 1
+			}
+		}
+	} else {
+		for _, corner := range [][2]float64{
+			{r.x, r.y},
+			{r.x + r.w, r.y},
+			{r.x + r.w, r.y + r.h},
+			{r.x, r.y + r.h},
+		} {
+			dx := corner[0] - c.x
+			dy := corner[1] - c.y
+			if dx*dx+dy*dy < c.r*c.r {
+				hit = true
+				deflectX = c.x - corner[0]
+				deflectY = c.y - corner[1]
+				normalize(&deflectX, &deflectY)
+			}
+		}
+	}
+	return
+}
+
+func bounceDir(dirX, dirY, surfaceNormalX, surfaceNormalY float64) (bx, by float64) {
+	normalize(&surfaceNormalX, &surfaceNormalY)
+	f := 2.0 * (dirX*surfaceNormalX + dirY*surfaceNormalY)
+	bx = dirX - f*surfaceNormalX
+	by = dirY - f*surfaceNormalY
+	normalize(&bx, &by)
+	return
+}
+
+func normalize(x, y *float64) {
+	if *x != 0 || *y != 0 {
+		f := 1.0 / math.Hypot(*x, *y)
+		*x *= f
+		*y *= f
+	}
+}
+
+func makeNonHorizontal(dx, dy float64) (float64, float64) {
+	const min = math.Pi / 10
+	angle := math.Atan2(dy, dx)
+	for angle > 2*math.Pi {
+		angle -= 2 * math.Pi
+	}
+	for angle < 0 {
+		angle += 2 * math.Pi
+	}
+	if angle < min {
+		angle = min
+	}
+	if math.Pi-min < angle && angle < math.Pi+min {
+		if angle < math.Pi {
+			angle = math.Pi - min
+		} else {
+			angle = math.Pi + min
+		}
+	}
+	if angle > 2*math.Pi-min {
+		angle = 2*math.Pi - min
+	}
+	dy, dx = math.Sincos(angle)
+	return dx, dy
 }

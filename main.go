@@ -11,23 +11,18 @@ func main() {
 		windowW, windowH                 = 720, 600
 		backgroundTileW, backgroundTileH = 64, 48
 		score                            = 1300
-		ballRadius                       = 10
+		ballRadius                       = 11
 		tileW, tileH                     = 64, 32
-		panelW, panelH                   = 100, 24
+		panelW, panelH                   = 144, 24
 		panelY                           = windowH - panelH
 		panelSpeed                       = 8
 		ballSpeed                        = 8
-	)
-	const (
-		stateIdle = iota
-		statePlaying
 	)
 	lives := 5
 	var ball ball
 	ball.x, ball.y = 230, 412
 	ball.vx, ball.vy = math.Cos(0.5), -math.Sin(0.5)
 	panelX := 0
-	state := stateIdle
 
 	var tiles []tile
 	for x := 0; x < 9; x++ {
@@ -58,27 +53,6 @@ func main() {
 		}
 
 		// Update world.
-		ballSpeed := ballSpeed
-		if dead {
-			ball.x = float64(panelX)
-
-			wasLeftClicked := false
-			for _, c := range window.Clicks() {
-				if c.Button == draw.LeftButton {
-					wasLeftClicked = true
-				}
-			}
-
-			if wasLeftClicked {
-				if ball.vx == 0 && ball.vy == 0 {
-					ball.vy = -1
-				}
-				dead = false
-			} else {
-				ballSpeed = 0
-			}
-		}
-
 		for step := 0; step < ballSpeed; step++ {
 			newX := ball.x + ball.vx
 			newY := ball.y + ball.vy
@@ -146,6 +120,14 @@ func main() {
 			ball.vx, ball.vy = 0, 0
 		}
 
+		for _, c := range window.Clicks() {
+			if c.Button == draw.LeftButton {
+				if ball.vx == 0 && ball.vy == 0 {
+					ball.vy = -1
+				}
+			}
+		}
+
 		// Draw background.
 		for x := 0; x < windowW; x += backgroundTileW {
 			for y := 0; y < windowH; y += backgroundTileH {
@@ -155,14 +137,10 @@ func main() {
 
 		// Draw tiles.
 		for _, tile := range tiles {
-			c := tileColors[tile.color]
-			window.FillRect(tile.x, tile.y, tileW, tileH, c[fillColor])
-			window.FillRect(tile.x, tile.y+2, tileW, 6, c[topColor])
-			window.FillRect(tile.x+2, tile.y, 6, tileH, c[sideColor])
-			window.FillRect(tile.x+tileW-8, tile.y, 6, tileH, c[sideColor])
-			window.FillRect(tile.x, tile.y+tileH-8, tileW, 6, c[bottomColor])
-			window.DrawRect(tile.x, tile.y, tileW, tileH, c[borderColor])
-			window.DrawRect(tile.x+1, tile.y+1, tileW-2, tileH-2, c[borderColor])
+			file := []string{
+				"red", "purple", "blue", "green", "yellow", "gray",
+			}[tile.color]
+			window.DrawImageFile(file+".png", tile.x, tile.y)
 			if tile.hit == 1 {
 				window.DrawImageFile("damage1.png", tile.x, tile.y)
 			}
@@ -171,52 +149,9 @@ func main() {
 			}
 		}
 
-		// Draw mouse panel.
-		panelLeft := panelX - panelW/2
-		window.FillEllipse(
-			panelLeft-panelH/2-4,
-			panelY,
-			panelH,
-			panelH,
-			draw.Red,
-		)
-		window.FillEllipse(
-			panelLeft-panelH/2+panelW+4,
-			panelY,
-			panelH,
-			panelH,
-			draw.Red,
-		)
-		window.FillRect(
-			panelLeft,
-			panelY,
-			panelW,
-			panelH/2,
-			draw.RGB(0.85, 0.85, 0.85),
-		)
-		window.FillRect(
-			panelLeft,
-			panelY+panelH/2,
-			panelW,
-			panelH/2,
-			draw.RGB(0.8, 0.8, 0.8),
-		)
-
-		// Draw ball.
-		window.FillEllipse(
-			round(ball.x)-ballRadius,
-			round(ball.y)-ballRadius,
-			2*ballRadius,
-			2*ballRadius,
-			draw.White,
-		)
-		window.DrawEllipse(
-			round(ball.x)-ballRadius,
-			round(ball.y)-ballRadius,
-			2*ballRadius,
-			2*ballRadius,
-			draw.LightGray,
-		)
+		// Draw panel and ball.
+		window.DrawImageFile("panel.png", panelX-panelW/2, panelY)
+		window.DrawImageFile("ball.png", round(ball.x)-ballRadius, round(ball.y)-ballRadius)
 
 		// Draw score and lives texts.
 		const textScale = 2
@@ -240,59 +175,6 @@ type tile struct {
 	x, y  int
 	hit   int
 	color int
-}
-
-const (
-	fillColor = iota
-	topColor
-	bottomColor
-	sideColor
-	borderColor
-)
-
-var tileColors = [][5]draw.Color{
-	[5]draw.Color{
-		draw.RGB(242/255.0, 55/255.0, 55/255.0),
-		draw.RGB(244/255.0, 113/255.0, 113/255.0),
-		draw.RGB(190/255.0, 14/255.0, 14/255.0),
-		draw.RGB(222/255.0, 16/255.0, 16/255.0),
-		draw.RGB(142/255.0, 11/255.0, 11/255.0),
-	},
-	[5]draw.Color{
-		draw.RGB(131/255.0, 89/255.0, 149/255.0),
-		draw.RGB(155/255.0, 117/255.0, 172/255.0),
-		draw.RGB(98/255.0, 67/255.0, 112/255.0),
-		draw.RGB(121/255.0, 83/255.0, 138/255.0),
-		draw.RGB(88/255.0, 61/255.0, 101/255.0),
-	},
-	[5]draw.Color{
-		draw.RGB(74/255.0, 191/255.0, 240/255.0),
-		draw.RGB(122/255.0, 207/255.0, 243/255.0),
-		draw.RGB(20/255.0, 165/255.0, 226/255.0),
-		draw.RGB(52/255.0, 182/255.0, 237/255.0),
-		draw.RGB(16/255.0, 125/255.0, 171/255.0),
-	},
-	[5]draw.Color{
-		draw.RGB(159/255.0, 206/255.0, 49/255.0),
-		draw.RGB(179/255.0, 216/255.0, 90/255.0),
-		draw.RGB(133/255.0, 172/255.0, 40/255.0),
-		draw.RGB(149/255.0, 192/255.0, 46/255.0),
-		draw.RGB(106/255.0, 137/255.0, 33/255.0),
-	},
-	[5]draw.Color{
-		draw.RGB(255/255.0, 204/255.0, 0/255.0),
-		draw.RGB(254/255.0, 219/255.0, 78/255.0),
-		draw.RGB(202/255.0, 162/255.0, 2/255.0),
-		draw.RGB(227/255.0, 182/255.0, 2/255.0),
-		draw.RGB(167/255.0, 133/255.0, 3/255.0),
-	},
-	[5]draw.Color{
-		draw.RGB(204/255.0, 204/255.0, 204/255.0),
-		draw.RGB(221/255.0, 221/255.0, 221/255.0),
-		draw.RGB(166/255.0, 166/255.0, 166/255.0),
-		draw.RGB(187/255.0, 187/255.0, 187/255.0),
-		draw.RGB(119/255.0, 119/255.0, 119/255.0),
-	},
 }
 
 func round(x float64) int {

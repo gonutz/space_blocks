@@ -1,24 +1,15 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math"
+	"os"
 
 	"github.com/gonutz/prototype/draw"
 )
 
 func main() {
-	const (
-		windowW, windowH                 = 720, 600
-		backgroundTileW, backgroundTileH = 64, 48
-		score                            = 1300
-		ballRadius                       = 11
-		tileW, tileH                     = 64, 32
-		panelW, panelH                   = 144, 24
-		panelY                           = windowH - panelH
-		panelSpeed                       = 8
-		ballSpeed                        = 8
-	)
 	lives := 5
 	var ball ball
 	ball.x, ball.y = 230, 412
@@ -29,6 +20,26 @@ func main() {
 	for x := 0; x < 9; x++ {
 		for y := 0; y < 6; y++ {
 			tiles = append(tiles, tile{x: 72 + x*tileW, y: 74 + y*tileH, color: y})
+		}
+	}
+
+	if f, err := os.Open("level"); err == nil {
+		defer f.Close()
+		tiles = nil
+		enc := binary.LittleEndian
+		for {
+			var x, y uint16
+			var color uint8
+			if binary.Read(f, enc, &x) != nil {
+				break
+			}
+			binary.Read(f, enc, &y)
+			binary.Read(f, enc, &color)
+			tiles = append(tiles, tile{
+				x:     int(x),
+				y:     int(y),
+				color: int(color),
+			})
 		}
 	}
 
@@ -147,10 +158,7 @@ func main() {
 
 		// Draw tiles.
 		for _, tile := range tiles {
-			file := []string{
-				"red", "purple", "blue", "green", "yellow", "gray",
-			}[tile.color]
-			window.DrawImageFile(file+".png", tile.x, tile.y)
+			window.DrawImageFile(allTiles[tile.color], tile.x, tile.y)
 			if tile.hit == 1 {
 				window.DrawImageFile("damage1.png", tile.x, tile.y)
 			}
